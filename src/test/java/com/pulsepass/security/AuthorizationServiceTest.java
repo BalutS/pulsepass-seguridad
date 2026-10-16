@@ -72,6 +72,17 @@ class AuthorizationServiceTest {
     }
 
     @Test
+    void validateTicketPurchaseOwnership_adminDifferentEmail_throwsAccessDenied() {
+        setSecurityContext(4L, "ADMIN");
+        User admin = new User("admin", "admin@email.com");
+        org.springframework.test.util.ReflectionTestUtils.setField(admin, "id", 4L);
+        when(userRepository.findById(4L)).thenReturn(Optional.of(admin));
+
+        assertThatThrownBy(() -> authorizationService.validateTicketPurchaseOwnership("carlos@email.com"))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
     void validateTicketOwnership_ownerUser_allows() {
         setSecurityContext(1L, "USER");
         User user = new User("andrea", "andrea@email.com");

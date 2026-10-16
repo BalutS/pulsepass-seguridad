@@ -66,13 +66,14 @@ public class SecurityConfig {
                 // El orden importa: reglas específicas primero, anyRequest() al final.
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/users").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/events/published").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/events/*/tickets/paid").hasAnyRole("STAFF", "ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/events/published", "/api/events/by-artist", "/api/events/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/artists/**", "/api/venues/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/events").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/events/*/publish").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/events/*/artists/*").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/tickets").hasRole("USER")
                         .requestMatchers(HttpMethod.PATCH, "/api/tickets/*/use").hasAnyRole("STAFF", "ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/events/*/tickets/paid").hasAnyRole("STAFF", "ADMIN")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtFilter, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class);
         return http.build();
