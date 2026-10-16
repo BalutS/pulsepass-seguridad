@@ -111,4 +111,22 @@ public class AuthServiceImpl implements AuthService {
 
         return new AuthResponse(token, TOKEN_TYPE, jwtService.accessTokenTtlSeconds());
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public com.pulsepass.dto.response.AuthenticatedUserResponse me() {
+        Authentication authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || !(authentication.getPrincipal() instanceof SecurityPrincipal principal)) {
+            throw new InvalidCredentialsException();
+        }
+
+        User user = userRepository.findById(principal.getUserId())
+                .orElseThrow(() -> new InvalidCredentialsException());
+
+        java.util.List<String> roles = principal.getAuthorities().stream()
+                .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                .toList();
+
+        return new com.pulsepass.dto.response.AuthenticatedUserResponse(user.getId(), user.getUsername(), user.getEmail(), roles);
+    }
 }

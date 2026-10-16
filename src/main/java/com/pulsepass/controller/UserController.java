@@ -20,10 +20,13 @@ public class UserController {
 
     private final UserService userService;
     private final AuthService authService;
+    private final com.pulsepass.security.AuthorizationService authorizationService;
 
-    public UserController(UserService userService, AuthService authService) {
+    public UserController(UserService userService, AuthService authService,
+                          com.pulsepass.security.AuthorizationService authorizationService) {
         this.userService = userService;
         this.authService = authService;
+        this.authorizationService = authorizationService;
     }
 
     @PostMapping
@@ -36,11 +39,13 @@ public class UserController {
 
     @GetMapping("/by-email")
     public ResponseEntity<UserResponse> findByEmail(@RequestParam String email) {
+        authorizationService.validateUserResourceAccessByEmail(email);
         return ResponseEntity.ok(userService.findByEmail(email));
     }
 
     @GetMapping("/by-username")
     public ResponseEntity<UserResponse> findByUsername(@RequestParam String username) {
+        authorizationService.validateUserResourceAccessByUsername(username);
         return ResponseEntity.ok(userService.findByUsername(username));
     }
 }

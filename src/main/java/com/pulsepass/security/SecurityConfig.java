@@ -51,6 +51,7 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                            JwtAuthenticationFilter jwtFilter,
                                             AuthenticationEntryPoint authEntryPoint,
                                             AccessDeniedHandler deniedHandler) throws Exception {
         http
@@ -72,10 +73,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/events/*/artists/*").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/tickets/*/use").hasAnyRole("STAFF", "ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/events/*/tickets/paid").hasAnyRole("STAFF", "ADMIN")
-                        // GET /api/events/{eventCode} y GET /api/events/by-artist NO se abren aquí a propósito:
-                        // exponen borradores. Se abrirán en la etapa 7 junto con el filtrado por PUBLISHED.
-                        .anyRequest().authenticated());
-        // TODO etapa 5: .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                        .anyRequest().authenticated())
+                .addFilterBefore(jwtFilter, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }

@@ -54,6 +54,33 @@ public class JwtService {
         return properties.accessTokenTtl().toSeconds();
     }
 
+    /**
+     * Valida el token y retorna el userId contenido en el claim 'sub' (PRD 12 y 14.4).
+     * Dispara excepciones específicas de JJWT o IllegalArgumentException/JwtException si es inválido.
+     */
+    public Long validateTokenAndGetUserId(String token) {
+        if (token == null || token.isBlank()) {
+            throw new IllegalArgumentException("Token cannot be null or empty");
+        }
+        var claims = Jwts.parser()
+                .verifyWith(key)
+                .requireIssuer(properties.issuer())
+                .clock(() -> Date.from(Instant.now(clock)))
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+
+        String sub = claims.getSubject();
+        if (sub == null || sub.isBlank()) {
+            throw new IllegalArgumentException("Token subject is missing");
+        }
+        try {
+            return Long.parseLong(sub);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid user ID in token subject", e);
+        }
+    }
+
     private static SecretKey buildKey(String secretBase64) {
         if (secretBase64 == null || secretBase64.isBlank()) {
             throw new IllegalStateException(
