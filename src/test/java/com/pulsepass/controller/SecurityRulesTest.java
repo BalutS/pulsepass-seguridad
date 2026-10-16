@@ -102,12 +102,10 @@ class SecurityRulesTest {
     }
 
     @Test
-    void T_SEC_017_anonymous_cannotReadEventByCodeOrByArtist_untilStage7AddsPublishedFiltering() throws Exception {
-        mockMvc.perform(get("/api/events/CMF-2026")).andExpect(status().isUnauthorized());
+    void T_SEC_017_anonymous_canReachEventByCodeAndByArtist() throws Exception {
+        mockMvc.perform(get("/api/events/CMF-2026")).andExpect(status().isOk());
         mockMvc.perform(get("/api/events/by-artist").param("stageName", "Solar Beat"))
-                .andExpect(status().isUnauthorized());
-
-        verifyNoInteractions(eventService);
+                .andExpect(status().isOk());
     }
 
     @Test

@@ -57,9 +57,6 @@ public class AuthorizationService {
     @Transactional(readOnly = true)
     public void validateTicketPurchaseOwnership(String userEmailInDto) {
         SecurityPrincipal principal = getCurrentPrincipal();
-        if (hasRole("ADMIN") || hasRole("STAFF")) {
-            return;
-        }
         User current = userRepository.findById(principal.getUserId())
                 .orElseThrow(() -> ResourceNotFoundException.of("User", principal.getUserId()));
 
@@ -140,6 +137,18 @@ public class AuthorizationService {
     }
 
     /**
+     * Retorna true si el principal actual posee rol STAFF o ADMIN, permitiéndole ver eventos no publicados.
+     */
+    public boolean canViewNonPublishedEvents() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || !(auth.getPrincipal() instanceof SecurityPrincipal principal)) {
+            return false;
+        }
+        return principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_STAFF"));
+    }
+
+    /**
      * Verifica la visibilidad de un evento (GET /api/events/{eventCode}).
      * Si no está PUBLISHED, sólo STAFF y ADMIN pueden consultarlo.
      */
@@ -148,14 +157,8 @@ public class AuthorizationService {
         Event event = eventRepository.findByEventCode(eventCode)
                 .orElseThrow(() -> ResourceNotFoundException.of("Event", eventCode));
 
-        if (event.getStatus() != EventStatus.PUBLISHED) {
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            if (auth == null || !auth.isAuthenticated() || !(auth.getPrincipal() instanceof SecurityPrincipal)) {
-                throw new AccessDeniedException("El evento solicitado no está publicado");
-            }
-            if (!hasRole("ADMIN") && !hasRole("STAFF")) {
-                throw new AccessDeniedException("El evento solicitado no está publicado");
-            }
+        if (event.getStatus() != EventStatus.PUBLISHED && !canViewNonPublishedEvents()) {
+            throw new AccessDeniedException("El evento solicitado no está publicado");
         }
     }
 }

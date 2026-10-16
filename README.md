@@ -263,38 +263,40 @@ mvn test -Dtest='*ControllerTest,ControllerLayerDesignTest,GlobalExceptionHandle
 ```
 
 
-Capa de seguridad (fase 4 — mitad 1: etapas 1 a 4)
+Capa de seguridad (fase 4 — Estado Final Completo)
 
-Implementa la primera mitad del PRD "Capa de Seguridad con Spring Security y JJWT": contrato de
-autorización, persistencia de credenciales y roles, contraseñas con BCrypt y login con emisión de JWT.
+Implementa de forma completa el PRD "Capa de Seguridad con Spring Security y JJWT":
+contrato de autorización, persistencia de credenciales y roles, contraseñas con BCrypt, login con emisión y validación de JWT, filtro de seguridad Bearer (`JwtAuthenticationFilter`), servicio de autorización con anti-IDOR (`AuthorizationService`), control de roles y visibilidad de eventos no publicados.
 
-| Etapa | Qué incluye | Dónde |
+| Componente / Etapa | Descripción | Ubicación |
 |---|---|---|
-| 1. Contrato | Matriz de autorización de las 20 rutas | docs/SEGURIDAD_MATRIZ.md |
-| 2. Persistencia | Migración V4 (user_credentials, user_roles), entidades y repositories | db/migration/V4__..., domain/model, repository |
-| 3. Passwords | BCrypt, SecurityPrincipal, CustomUserDetailsService | security/ |
-| 4. Auth | AuthService (registro atómico + login), AuthController, DTOs, JwtService (solo emisión) | service/, controller/, security/ |
+| 1. Contrato & Matriz | Matriz de autorización de las 20 rutas + auth | `docs/SEGURIDAD_MATRIZ.md` |
+| 2. Persistencia Flyway | Migración `V4__security_credentials_roles.sql`, tablas `user_credentials` y `user_roles` | `src/main/resources/db/migration/` |
+| 3. Autenticación & Passwords | Hashing BCrypt, `SecurityPrincipal`, `CustomUserDetailsService` | `src/main/java/com/pulsepass/security/` |
+| 4. JWT & Filtros | Emisión y validación con JJWT 0.13.0, `JwtAuthenticationFilter` (Bearer token) | `src/main/java/com/pulsepass/security/` |
+| 5. Autorización & Anti-IDOR | `AuthorizationService` para verificar propiedad de recursos y filtrar eventos no publicados en `GET /api/events/by-artist` y `GET /api/events/{code}` | `src/main/java/com/pulsepass/security/` |
+| 6. Pruebas de integración | Pruebas de integración de seguridad con JWT reales firmados | `src/test/java/com/pulsepass/security/SecurityJwtIntegrationTest.java` |
 
-Pendiente (mitad 2): JwtAuthenticationFilter y validación del token (etapa 5), pruebas de las 20 rutas con
-token real (6), AuthorizationService / anti-IDOR / filtrado de borradores (7), integración y DoD (8).
-Mientras tanto las rutas protegidas responden 401 (denegar por defecto).
-
-Variables de entorno (ver .env.example; no versionar el secreto):
+Variables de entorno (ver `.env.example`; no versionar el secreto en producción):
 
 ```bash
 export PULSEPASS_JWT_SECRET_BASE64=$(openssl rand -base64 32)   # obligatoria: sin ella la app no arranca
 export PULSEPASS_JWT_ISSUER=pulsepass-api                       # opcional
 ```
 
-Cambios de contrato respecto a la fase 3:
+Operaciones y Reglas de Seguridad:
 
-- POST /api/users exige ahora `password` (12 a 72 caracteres, máximo 72 bytes). La respuesta sigue sin incluirla.
-- UserController.register delega en AuthService.register, que crea User + credencial + ROLE_USER en una transacción.
-- POST /api/auth/login recibe `{identifier, password}` (username o email) y responde `{accessToken, tokenType, expiresIn}`.
-- Los errores 401 y 403 usan el mismo ErrorResponse de seis campos.
-- Los tests @WebMvcTest existentes ahora importan la SecurityConfig real y corren con @WithMockUser; las reglas por
-  rol se verifican en SecurityRulesTest.
+- `POST /api/users`: Público. Registro atómico de usuario con contraseña (12-72 caracteres) y asignación automática de `ROLE_USER`.
+- `POST /api/auth/login`: Público. Recibe `{identifier, password}` y emite JWT firmado HS256 con vencimiento de 15 minutos.
+- `GET /api/auth/me`: Autenticado (Bearer token). Retorna los datos del principal autenticado.
+- `POST /api/tickets`: Requiere `ROLE_USER`. Valida estrictamente que `userEmail` coincida con la identidad del principal autenticado (anti-IDOR).
+- `GET /api/events/by-artist`: Público para eventos `PUBLISHED`. Eventos en borrador u otros estados requieren `ROLE_STAFF` o `ROLE_ADMIN`.
+- `GET /api/events/{eventCode}`: Público para eventos `PUBLISHED`. Si no está publicado, exige `ROLE_STAFF` o `ROLE_ADMIN`.
+- Errores de seguridad (401 Unauthorized, 403 Forbidden) mantienen el contrato estandarizado `ErrorResponse`.
+
+Comandos de prueba:
 
 ```bash
-mvn clean test   # requiere Docker para los *IT (Testcontainers)
+# Ejecutar todas las suites de unit tests, MockMvc y pruebas de integración JWT:
+mvn test -Dtest=JwtServiceTest,AuthServiceImplTest,UserServiceImplTest,TicketServiceImplTest,VenueArtistServicesTest,EventServiceImplTest,VenueControllerTest,ControllerLayerDesignTest,GlobalExceptionHandlerTest,UserControllerTest,SecurityRulesTest,TicketControllerTest,AuthControllerTest,EventControllerTest,ArtistControllerTest,CustomUserDetailsServiceTest,AuthorizationServiceTest,MappersTest,ServiceLayerDesignTest,TicketPricingPolicyTest,SecurityJwtIntegrationTest
 ```
