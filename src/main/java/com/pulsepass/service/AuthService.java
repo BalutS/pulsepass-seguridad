@@ -13,4 +13,7 @@ public interface AuthService {
 
     /** Autentica (username o email + contraseña) y emite un access token. */
     AuthResponse login(LoginRequest request);
+
+    /** Obtiene los datos del principal autenticado para GET /api/auth/me (FR-SECAUTH-010). */
+    com.pulsepass.dto.response.AuthenticatedUserResponse me();
 }
